@@ -4,7 +4,7 @@ from card import RfIdCard
 from sqlalchemy import create_engine
 import sqlalchemy as db
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import exc
+from sqlalchemy import exc, text
 from pymysql.err import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from letters import Letter, Number
@@ -21,7 +21,7 @@ class SqliteConnector:
         logger.debug("api_call = " + str(api_call))
         try:
             with self.engine.connect() as connection:
-                ResultProxy = connection.execute('SELECT Id, LetterId, Letter from hebrew_letters')
+                ResultProxy = connection.execute(text('SELECT Id, LetterId, Letter from hebrew_letters'))
                 ResultSet = ResultProxy.fetchall()
                 if api_call == True:
                     for row in ResultSet:
@@ -47,7 +47,7 @@ class SqliteConnector:
         logger.debug("api_call = " + str(api_call))
         try:
             with self.engine.connect() as connection:
-                ResultProxy = connection.execute('SELECT Id, LetterId, Letter from english_letters')
+                ResultProxy = connection.execute(text('SELECT Id, LetterId, Letter from english_letters'))
                 ResultSet = ResultProxy.fetchall()
                 if api_call == True:
                     for row in ResultSet:
@@ -72,7 +72,7 @@ class SqliteConnector:
         logger.debug("api_call = " + str(api_call))
         try:
             with self.engine.connect() as connection:
-                ResultProxy = connection.execute('SELECT Id, NumberId, Number FROM numbers')
+                ResultProxy = connection.execute(text('SELECT Id, NumberId, Number FROM numbers'))
                 ResultSet = ResultProxy.fetchall()
                 if api_call == True:
                     for row in ResultSet:
@@ -96,7 +96,7 @@ class SqliteConnector:
         logger.debug("api_call = " + str(api_call))
         try:
             with self.engine.connect() as connection:
-                ResultProxy = connection.execute('SELECT Id, CardId, HebrewLetterId, EnglishLetterId, NumberId FROM rfid_cards')
+                ResultProxy = connection.execute(text('SELECT Id, CardId, HebrewLetterId, EnglishLetterId, NumberId FROM rfid_cards'))
                 ResultSet = ResultProxy.fetchall()
                 if api_call == True:
                     for row in ResultSet:
@@ -125,7 +125,7 @@ class SqliteConnector:
             with self.engine.connect() as connection:
                 query = f"INSERT INTO rfid_cards (CardId,HebrewLetterId,EnglishLetterId,NumberId)" \
                 f"VALUES ('{rfidcard.CardId}', {rfidcard.HebrewLetterId}, {rfidcard.EnglishLetterId}, {rfidcard.NumberId})"    
-                connection.execute(query)
+                connection.execute(text(query))
                 return True, "The card has been added successfuly"
         except exc.IntegrityError as e:
             logger.warning(str(e))

@@ -1,9 +1,9 @@
-import os, json, requests, uvicorn, time, socket, re
+import os, json, requests, uvicorn, time, socket, re, asyncio
 from urllib.parse import urlparse
 from os import environ, path
 from loguru import logger
 from card import RfIdCard
-from fastapi import FastAPI, Request, File, Form, UploadFile
+from fastapi import FastAPI, Request, File, Form, UploadFile, WebSocket
 from pydantic import BaseModel
 from fastapi.responses import UJSONResponse
 from fastapi.templating import Jinja2Templates
@@ -15,13 +15,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from starlette_exporter import PrometheusMiddleware, handle_metrics
 from sqliteconnector import SqliteConnector
-
+from connectionmanager import ConnectionManager
 
 
 tag_id = ""
 
 
 app = FastAPI(title="Tag Server", description="Manage RFId Tags", version="1.0.0")
+manager = ConnectionManager()
 logger.info("Configuring app")
 app.mount("/dist", StaticFiles(directory="dist"), name="dist")
 app.mount("/js", StaticFiles(directory="dist/js"), name="js")
@@ -76,6 +77,17 @@ async def bind_new_tag(request:Request):
     finally:
         tag_id = ""
 
+
+@app.websocket("/communicate")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(user_id,websocket)
+    try:
+        while True:
+           await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.send_messages([user_id],"Bye!!!")
+        manager.disconnect(user_id,websocket)
+
 @app.get("/api/tag/scan")
 def get_new_tag(request: Request):
     global tag_id
@@ -102,7 +114,7 @@ def clear_tag(request: Request):
         return "0"
 
 @app.get("/api/tag/read")
-def preview(request: Request, Id : str =""):
+async def preview(request: Request, Id : str =""):
     """
     Scan for new tags
     """
@@ -110,38 +122,34 @@ def preview(request: Request, Id : str =""):
     try:
         tag_id = Id
         logger.info("Authorized")
+        logger.warning(len(manager.connections))
+        websocket = manager.connections.get("t0mer")
+        if websocket:
+            logger.debug("Is websocket")
+            await websocket.send_text(tag_id)
         return 1
     except Exception as e:
         logger.error(str(e))
         return 0
-        # return JSONResponse(content = '{"image_url":"error.png","success":"false"}')
 
 
-@app.get("/api/hebrewletters")
-def get_hebrew_letters(request: Request):
+
+@app.get("/api/items")
+def get_hebrew_letters(request: Request,typename: str):
     try:
-        return JSONResponse(status_code=200, content=db.get_hebrew_letters(True))
-    except Exception as e:
-        logger.error(str(e))
-        return JSONResponse(status_code=400, content = json.loads('{"message":"'+ str(e) +'","success":"false"}'))
-
-@app.get("/api/englishletters")
-def get_hebrew_letters(request: Request):
-    try:
-        return JSONResponse(status_code=200, content=db.get_english_letters(True))
-    except Exception as e:
-        logger.error(str(e))
-        return JSONResponse(status_code=400, content = json.loads('{"message":"'+ str(e) +'","success":"false"}'))
-
-@app.get("/api/numbers")
-def get_hebrew_letters(request: Request):
-    try:
-        return JSONResponse(status_code=200, content=db.get_numbers(True))
+        return JSONResponse(status_code=200, content=db.get_items(typename,True))
     except Exception as e:
         logger.error(str(e))
         return JSONResponse(status_code=400, content = json.loads('{"message":"'+ str(e) +'","success":"false"}'))
 
 
+@app.get("/api/cardtypes")
+def get_card_types(request: Request):
+    try:
+        return JSONResponse(status_code=200, content=db.get_card_types(True))
+    except Exception as e:
+        logger.error(str(e))
+        return JSONResponse(status_code=400, content = json.loads('{"message":"'+ str(e) +'","success":"false"}'))
 
 @app.get("/api/tags")
 def get_tags(request: Request):
@@ -154,9 +162,4 @@ def get_tags(request: Request):
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=8087)
-
-
-# analayze
-
-
 

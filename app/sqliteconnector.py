@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import exc, text
 from pymysql.err import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from letters import Letter, Number
+from items import Item
 
 
 class SqliteConnector:
@@ -16,80 +16,56 @@ class SqliteConnector:
         self.engine = db.create_engine("mysql+pymysql://root:T0mer!2405-77@localhost/tags", echo=True)
 
    
-    def get_hebrew_letters(self, api_call=False):
-        hebrew_letters = []
+    def get_card_types(self, api_call=False):
+        card_types = []
         logger.debug("api_call = " + str(api_call))
         try:
             with self.engine.connect() as connection:
-                ResultProxy = connection.execute(text('SELECT Id, LetterId, Letter from hebrew_letters'))
+                ResultProxy = connection.execute(text('SELECT CardTypeId, CardTypeName, TableName from card_types'))
+                ResultSet = ResultProxy.fetchall()
+                if api_call == True:
+                    for row in ResultSet:
+                        json_row = {
+                        "CardTypeId": row.CardTypeId,
+                        "CardTypeName": row.CardTypeName,
+                        "CardItemType": row.TableName
+                    }
+                        card_types.append(json_row)
+                    return card_types
+                else:
+                    for row in ResultSet:
+                        card_types.append(Letter(row[0],row[1],row[2]))
+                    return card_types
+        except Exception as e:
+            logger.error(str(e))
+            return card_types
+
+    def get_items(self, table_name, api_call=False):
+        items = []
+        logger.debug("api_call = " + str(api_call))
+        try:
+            with self.engine.connect() as connection:
+                ResultProxy = connection.execute(text(f"SELECT Id, ItemId, Item from {table_name}"))
                 ResultSet = ResultProxy.fetchall()
                 if api_call == True:
                     for row in ResultSet:
                         json_row = {
                         "Id": row.Id,
-                        "LetterId": row.LetterId,
-                        "Letter": row.Letter
+                        "ItemId": row.ItemId,
+                        "Item": row.Item
                     }
-                        hebrew_letters.append(json_row)
-                    return hebrew_letters
+                        items.append(json_row)
+                    return items
                 else:
                     for row in ResultSet:
-                        hebrew_letters.append(Letter(row[0],row[1],row[2]))
-                    return hebrew_letters
+                        items.append(Letter(row[0],row[1],row[2]))
+                    return items
         except Exception as e:
             logger.error(str(e))
-            return hebrew_letters
+            return items
 
 
 
-    def get_english_letters(self, api_call=False):
-        english_letters = []
-        logger.debug("api_call = " + str(api_call))
-        try:
-            with self.engine.connect() as connection:
-                ResultProxy = connection.execute(text('SELECT Id, LetterId, Letter from english_letters'))
-                ResultSet = ResultProxy.fetchall()
-                if api_call == True:
-                    for row in ResultSet:
-                        json_row = {
-                        "Id": row.Id,
-                        "LetterId": row.LetterId,
-                        "Letter": row.Letter
-                    }
-                        english_letters.append(json_row)
-                    return english_letters
-                else:
-                    for row in ResultSet:
-                        english_letters.append(Letter(row[0],row[1],row[2]))
-                    return english_letters
-        except Exception as e:
-            logger.error(str(e))
-            return english_letters
-
-
-    def get_numbers(self, api_call=False):
-        numbers = []
-        logger.debug("api_call = " + str(api_call))
-        try:
-            with self.engine.connect() as connection:
-                ResultProxy = connection.execute(text('SELECT Id, NumberId, Number FROM numbers'))
-                ResultSet = ResultProxy.fetchall()
-                if api_call == True:
-                    for row in ResultSet:
-                        json_row = {
-                        "Id": row.Id,
-                        "NumberId": row.NumberId,
-                        "Number": row.Number
-                    }
-                        numbers.append(json_row)
-                    return numbers
-                else:
-                    for row in ResultSet:
-                        numbers.append(Number(row[0],row[1],row[2]))
-                    return numbers
-        except Exception as e:
-            logger.error(str(e))
-            return numbers
 
     def get_cards(self, api_call=False):
         rfid_cards = []
